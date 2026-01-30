@@ -1,4 +1,24 @@
-# image-template
+# miTie server
+
+This repository contains the OS of miTie's mini-pc homelab.
+It also serves as my opportunity to get into atomic OS builds.
+
+## ToDo
+
+- [ ] Install the Framework kernel modules
+- [ ] What are packages that I want to have?
+  - [ ] Netbird
+  - [ ] Cockpit
+  - [ ] Nextcloud
+  - [ ] Jitsi
+  - [ ] OpenCode
+  - [ ] Home Assistant
+- [ ] Minify the build
+
+# ReadYou
+
+> [!TIP]
+> The original Readme can be found [here](https://github.com/ublue-os/image-template).
 
 This repository is meant to be a template for building your own custom [bootc](https://github.com/bootc-dev/bootc) image. This template is the recommended way to make customizations to any image published by the Universal Blue Project.
 
@@ -15,29 +35,6 @@ To get started on your first bootc image, simply read and follow the steps in th
 If you prefer instructions in video form, TesterTech created an excellent tutorial, embedded below.
 
 [![Video Tutorial](https://img.youtube.com/vi/IxBl11Zmq5w/0.jpg)](https://www.youtube.com/watch?v=IxBl11Zmq5wE)
-
-## Step 0: Prerequisites
-
-These steps assume you have the following:
-- A Github Account
-- A machine running a bootc image (e.g. Bazzite, Bluefin, Aurora, or Fedora Atomic)
-- Experience installing and using CLI programs
-
-## Step 1: Preparing the Template
-
-### Step 1a: Copying the Template
-
-Select `Use this Template` on this page. You can set the name and description of your repository to whatever you would like, but all other settings should be left untouched.
-
-Once you have finished copying the template, you need to enable the Github Actions workflows for your new repository.
-To enable the workflows, go to the `Actions` tab of the new repository and click the button to enable workflows.
-
-### Step 1b: Cloning the New Repository
-
-Here I will defer to the much superior GitHub documentation on the matter. You can use whichever method is easiest.
-[GitHub Documentation](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository)
-
-Once you have the repository on your local drive, proceed to the next step.
 
 ## Step 2: Initial Setup
 
@@ -156,16 +153,6 @@ The [build-disk.yml](./.github/workflows/build-disk.yml) Github Actions workflow
 
 Once the workflow is done, you'll find the disk images either in your S3 bucket or as part of the summary under `Artifacts` after the workflow is completed.
 
-# Artifacthub
-
-This template comes with the necessary tooling to index your image on [artifacthub.io](https://artifacthub.io). Use the `artifacthub-repo.yml` file at the root to verify yourself as the publisher. This is important to you for a few reasons:
-
-- The value of artifacthub is it's one place for people to index their custom images, and since we depend on each other to learn, it helps grow the community. 
-- You get to see your pet project listed with the other cool projects in Cloud Native.
-- Since the site puts your README front and center, it's a good way to learn how to write a good README, learn some marketing, finding your audience, etc. 
-
-[Discussion Thread](https://universal-blue.discourse.group/t/listing-your-custom-image-on-artifacthub/6446)
-
 # Justfile Documentation
 
 The `Justfile` contains various commands and configurations for building and managing container images and virtual machine images using Podman and other utilities.
@@ -249,11 +236,11 @@ Runs shell check on all Bash scripts.
 
 Runs shfmt on all Bash scripts.
 
-## Additional resources
+# Additional resources
 
 For additional driver support, ublue maintains a set of scripts and container images available at [ublue-akmod](https://github.com/ublue-os/akmods). These images include the necessary scripts to install multiple kernel drivers within the container (Nvidia, OpenRazer, Framework...). The documentation provides guidance on how to properly integrate these drivers into your container image.
 
-## Community Examples
+# Community Examples
 
 These are images derived from this template (or similar enough to this template). Reference them when building your image!
 
