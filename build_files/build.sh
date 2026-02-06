@@ -27,6 +27,7 @@ set -e
 
 # this installs a package from fedora repos
 dnf5 install -y \
+    cockpit \
     just \
     tmux
 
@@ -39,5 +40,7 @@ dnf5 install -y \
 
 #### Example for enabling a System Unit File
 
-systemctl enable podman.socket
+systemctl enable cockpit.socket
 systemctl enable netbird.service
+systemctl enable podman.socket
+
