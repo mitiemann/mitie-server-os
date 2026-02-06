@@ -1,18 +1,6 @@
 #!/bin/bash
 
-set -ouex pipefail
-
-### Install packages
-
-# Packages can be installed from any enabled yum repo on the image.
-# RPMfusion repos are available by default in ublue main images
-# List of rpmfusion packages can be found here:
-# https://mirrors.rpmfusion.org/mirrorlist?path=free/fedora/updates/43/x86_64/repoview/index.html&protocol=https&redirect=1
-
-# this installs a package from fedora repos
-dnf5 install -y \
-    just \
-    tmux
+set -oux pipefail
 
 # Not sure whether this is the right approach: but it works!
 # Netbird
@@ -26,6 +14,22 @@ gpgkey=https://pkgs.netbird.io/yum/repodata/repomd.xml.key
 repo_gpgcheck=1
 EOF
 
+dnf5 install -y netbird
+
+set -e
+
+### Install packages
+
+# Packages can be installed from any enabled yum repo on the image.
+# RPMfusion repos are available by default in ublue main images
+# List of rpmfusion packages can be found here:
+# https://mirrors.rpmfusion.org/mirrorlist?path=free/fedora/updates/43/x86_64/repoview/index.html&protocol=https&redirect=1
+
+# this installs a package from fedora repos
+dnf5 install -y \
+    just \
+    tmux
+
 # Use a COPR Example:
 #
 # dnf5 -y copr enable ublue-os/staging
@@ -36,3 +40,4 @@ EOF
 #### Example for enabling a System Unit File
 
 systemctl enable podman.socket
+systemctl enable netbird.service
