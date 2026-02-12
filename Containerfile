@@ -1,7 +1,7 @@
 # Allow build scripts to be referenced without being copied into the final image
 FROM scratch AS ctx
 COPY build_files /
-COPY system_files/etc /etc
+# COPY system_files/etc /etc
 
 # Base Image
 FROM ghcr.io/ublue-os/ucore:stable
@@ -31,6 +31,7 @@ FROM ghcr.io/ublue-os/ucore:stable
 ## the following RUN directive does all the things required to run "build.sh" as recommended.
 
 RUN --mount=type=bind,from=ctx,source=/,target=/ctx \
+ #    --mount=type=cache,from=ctx,source=/etc,target=/etc \
     --mount=type=cache,dst=/var/cache \
     --mount=type=cache,dst=/var/log \
     --mount=type=tmpfs,dst=/tmp \
