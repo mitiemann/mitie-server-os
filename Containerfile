@@ -1,10 +1,10 @@
 # Allow build scripts to be referenced without being copied into the final image
 FROM scratch AS ctx
 COPY build_files /
-# COPY system_files/etc /etc
 
 # Base Image
 FROM ghcr.io/ublue-os/ucore:stable
+COPY system_files/etc /etc
 
 ## Other possible base images include:
 # FROM ghcr.io/ublue-os/bazzite:latest
