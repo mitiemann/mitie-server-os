@@ -1,4 +1,4 @@
-export image_name := env("IMAGE_NAME", "mitie-server-os") # output image name, usually same as repo name, change as needed
+export image_name := env("IMAGE_NAME", "mitie-server-os")
 export default_tag := env("DEFAULT_TAG", "latest")
 export bib_image := env("BIB_IMAGE", "quay.io/centos-bootc/bootc-image-builder:latest")
 
@@ -293,6 +293,52 @@ spawn-vm rebuild="0" type="qcow2" ram="6G":
       --vsock=false --pass-ssh-key=false \
       -i ./output/**/*.{{ type }}
 
+# Test the ISO installer in a headless VM (5 min timeout). Requires: qemu-system-x86_64, qemu-img, jq
+[group('Test')]
+test-iso $target_image=("localhost/" + image_name) $tag=default_tag:
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    if [[ ! -f "output/bootiso/install.iso" ]]; then
+        just build-iso "$target_image" "$tag"
+    fi
+
+    TESTDISK=$(mktemp -p "${PWD}" -u -t _test-disk.XXXXXXXXXX.qcow2)
+    trap "rm -f ${TESTDISK}" EXIT
+
+    qemu-img create -f qcow2 "$TESTDISK" 25G
+
+    echo "Booting ISO installer (timeout: 5m)..."
+    set +e
+    timeout 300 qemu-system-x86_64 \
+        -enable-kvm \
+        -m 4G \
+        -cpu host \
+        -smp 2 \
+        -drive file="$TESTDISK",if=virtio,format=qcow2 \
+        -drive file="output/bootiso/install.iso",media=cdrom,readonly=on \
+        -boot order=d \
+        -no-reboot \
+        -nographic
+    EXIT_CODE=$?
+    set -e
+
+    if [[ $EXIT_CODE -eq 124 ]]; then
+        echo "FAIL: installer timed out after 5 minutes"
+        exit 1
+    elif [[ $EXIT_CODE -ne 0 ]]; then
+        echo "FAIL: QEMU exited with code ${EXIT_CODE}"
+        exit 1
+    fi
+
+    DISK_USED=$(qemu-img info --output=json "$TESTDISK" | jq '."disk-size"')
+    MIN_SIZE=$(( 1 * 1024 * 1024 * 1024 ))
+    if [[ "$DISK_USED" -lt "$MIN_SIZE" ]]; then
+        echo "FAIL: disk appears unwritten (${DISK_USED} bytes used)"
+        exit 1
+    fi
+
+    echo "PASS: installer completed and disk was written (${DISK_USED} bytes used)"
 
 # Runs shell check on all Bash scripts
 lint:
