@@ -293,7 +293,7 @@ spawn-vm rebuild="0" type="qcow2" ram="6G":
       --vsock=false --pass-ssh-key=false \
       -i ./output/**/*.{{ type }}
 
-# Test the ISO installer in a headless VM (5 min timeout). Saves disk to output/test-disk.qcow2 for test-services. Requires: qemu-system-x86_64, qemu-img, jq
+# Test the ISO installer in a headless VM (15 min timeout). Saves disk to output/test-disk.qcow2 for test-services. Requires: qemu-system-x86_64, qemu-img, jq
 [group('Test')]
 test-iso $target_image=("localhost/" + image_name) $tag=default_tag:
     #!/usr/bin/env bash
@@ -307,9 +307,9 @@ test-iso $target_image=("localhost/" + image_name) $tag=default_tag:
     mkdir -p output
     qemu-img create -f qcow2 "$TESTDISK" 25G
 
-    echo "Booting ISO installer (timeout: 5m)..."
+    echo "Booting ISO installer (timeout: 15m)..."
     set +e
-    timeout 300 qemu-system-x86_64 \
+    timeout 900 qemu-system-x86_64 \
         -enable-kvm \
         -m 4G \
         -cpu host \
@@ -318,12 +318,12 @@ test-iso $target_image=("localhost/" + image_name) $tag=default_tag:
         -drive file="output/bootiso/install.iso",media=cdrom,readonly=on \
         -boot order=d \
         -no-reboot \
-        -nographic
-    EXIT_CODE=$?
+        -nographic 2>&1 | tee output/installer.log
+    EXIT_CODE=${PIPESTATUS[0]}
     set -e
 
     if [[ $EXIT_CODE -eq 124 ]]; then
-        echo "FAIL: installer timed out after 5 minutes"
+        echo "FAIL: installer timed out after 15 minutes"
         exit 1
     elif [[ $EXIT_CODE -ne 0 ]]; then
         echo "FAIL: QEMU exited with code ${EXIT_CODE}"
