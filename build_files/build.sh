@@ -44,3 +44,14 @@ systemctl enable cockpit.socket
 systemctl enable netbird.service
 systemctl enable podman.socket
 
+### User setup
+
+useradd -G wheel mitiemann
+
+# Store SSH key in /etc so it survives bootc deployment (/var/home is stateful)
+mkdir -p /etc/ssh/authorized_keys
+echo "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIM/uF7fR5OHvw9gY7BTKC8PEIR1vOk99B6ZyLAIAO3pB mitiemann@mitie-tueai" \
+    > /etc/ssh/authorized_keys/mitiemann
+chmod 700 /etc/ssh/authorized_keys
+chmod 600 /etc/ssh/authorized_keys/mitiemann
+

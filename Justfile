@@ -293,7 +293,7 @@ spawn-vm rebuild="0" type="qcow2" ram="6G":
       --vsock=false --pass-ssh-key=false \
       -i ./output/**/*.{{ type }}
 
-# Test the ISO installer in a headless VM (5 min timeout). Requires: qemu-system-x86_64, qemu-img, jq
+# Test the ISO installer in a headless VM (5 min timeout). Saves disk to output/test-disk.qcow2 for test-services. Requires: qemu-system-x86_64, qemu-img, jq
 [group('Test')]
 test-iso $target_image=("localhost/" + image_name) $tag=default_tag:
     #!/usr/bin/env bash
@@ -303,9 +303,8 @@ test-iso $target_image=("localhost/" + image_name) $tag=default_tag:
         just build-iso "$target_image" "$tag"
     fi
 
-    TESTDISK=$(mktemp -p "${PWD}" -u -t _test-disk.XXXXXXXXXX.qcow2)
-    trap "rm -f ${TESTDISK}" EXIT
-
+    TESTDISK="output/test-disk.qcow2"
+    mkdir -p output
     qemu-img create -f qcow2 "$TESTDISK" 25G
 
     echo "Booting ISO installer (timeout: 5m)..."
@@ -339,6 +338,76 @@ test-iso $target_image=("localhost/" + image_name) $tag=default_tag:
     fi
 
     echo "PASS: installer completed and disk was written (${DISK_USED} bytes used)"
+
+# Boot a disk and verify services are active over SSH. Defaults to output/test-disk.qcow2 (from test-iso). Registry path: run 'just build-qcow2' and pass output/qcow2/disk.qcow2. Requires: qemu-system-x86_64, edk2-ovmf
+[group('Test')]
+test-services $disk="output/test-disk.qcow2":
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    if [[ ! -f "$disk" ]]; then
+        echo "Disk image not found: $disk"
+        echo "Run 'just test-iso' first, or pass the path to a QCOW2 (e.g. output/qcow2/disk.qcow2)"
+        exit 1
+    fi
+
+    OVMF_CODE="/usr/share/edk2/ovmf/OVMF_CODE.fd"
+    if [[ ! -f "$OVMF_CODE" ]]; then
+        echo "OVMF not found at $OVMF_CODE — install the edk2-ovmf package"
+        exit 1
+    fi
+
+    OVMF_VARS=$(mktemp -t ovmf-vars.XXXXXXXXXX.fd)
+    cp /usr/share/edk2/ovmf/OVMF_VARS.fd "$OVMF_VARS"
+
+    SSH_PORT=2222
+    SSH_OPTS="-o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5 -p ${SSH_PORT}"
+
+    qemu-system-x86_64 \
+        -enable-kvm \
+        -m 4G \
+        -cpu host \
+        -smp 2 \
+        -drive if=pflash,format=raw,unit=0,file="${OVMF_CODE}",readonly=on \
+        -drive if=pflash,format=raw,unit=1,file="${OVMF_VARS}" \
+        -drive file="${disk}",if=virtio,format=qcow2 \
+        -netdev user,id=net0,hostfwd=tcp::${SSH_PORT}-:22 \
+        -device virtio-net-pci,netdev=net0 \
+        -display none \
+        -serial null \
+        > /tmp/qemu-test-services.log 2>&1 &
+    QEMU_PID=$!
+    trap "kill ${QEMU_PID} 2>/dev/null || true; rm -f ${OVMF_VARS}" EXIT
+
+    echo "Waiting for SSH (up to 60s)..."
+    for i in $(seq 1 60); do
+        if ssh ${SSH_OPTS} mitiemann@localhost true 2>/dev/null; then
+            echo "SSH ready after ${i}s"
+            break
+        fi
+        if [[ $i -eq 60 ]]; then
+            echo "FAIL: SSH did not become available within 60s"
+            exit 1
+        fi
+        sleep 1
+    done
+
+    FAILED=0
+    for service in cockpit.socket netbird.service podman.socket; do
+        if ssh ${SSH_OPTS} mitiemann@localhost systemctl is-active --quiet "$service"; then
+            echo "PASS: $service is active"
+        else
+            echo "FAIL: $service is not active"
+            FAILED=1
+        fi
+    done
+
+    kill "${QEMU_PID}" 2>/dev/null || true
+
+    if [[ $FAILED -ne 0 ]]; then
+        exit 1
+    fi
+    echo "PASS: all services are active"
 
 # Runs shell check on all Bash scripts
 lint:
