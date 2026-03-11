@@ -2,6 +2,13 @@ export image_name := env("IMAGE_NAME", "mitie-server-os") # output image name, u
 export default_tag := env("DEFAULT_TAG", "latest")
 export bib_image := env("BIB_IMAGE", "quay.io/centos-bootc/bootc-image-builder:latest")
 
+# PiKVM settings
+pikvm_host := "root@pikvm.denkb.ox"
+pikvm_msd := "/var/lib/kvmd/msd"
+# Retention: keep this many mitie-server-*.iso builds (local and remote).
+# TODO: switch to semver-aware policy — last 2 release builds + last 3 dev builds.
+pikvm_max_isos := "3"
+
 alias build-vm := build-qcow2
 alias rebuild-vm := rebuild-qcow2
 alias run-vm := run-vm-qcow2
@@ -294,7 +301,8 @@ spawn-vm rebuild="0" type="qcow2" ram="6G":
       -i ./output/**/*.{{ type }}
 
 
-# Upload ISO to PiKVM over SSH (requires passwordless SSH to root@pikvm.denkb.ox)
+# Upload ISO to PiKVM, maintaining a local mirror in isos/ and pruning old builds.
+# Requires passwordless SSH to {{ pikvm_host }}.
 [group('Utility')]
 push-iso:
     #!/usr/bin/bash
@@ -304,11 +312,30 @@ push-iso:
         echo "ISO not found at ${iso}. Run 'just build-iso' first."
         exit 1
     fi
+
+    mkdir -p isos
     filename="mitie-server-$(date +%Y%m%d-%H%M%S).iso"
-    ssh root@pikvm.denkb.ox kvmd-helper-otgmsd-remount rw
-    scp "${iso}" "root@pikvm.denkb.ox:/var/lib/kvmd/msd/images/${filename}"
-    ssh root@pikvm.denkb.ox kvmd-helper-otgmsd-remount ro
-    echo "ISO uploaded to PiKVM."
+
+    # Add new ISO to local mirror
+    cp "${iso}" "isos/${filename}"
+
+    # Prune local mirror — keep last {{ pikvm_max_isos }}
+    ls -1 isos/mitie-server-*.iso 2>/dev/null | sort | head -n -{{ pikvm_max_isos }} | xargs -r rm -v
+
+    # Sync to PiKVM
+    ssh {{ pikvm_host }} kvmd-helper-otgmsd-remount rw
+    rsync -az --partial --progress \
+        --include='mitie-server-*.iso' --exclude='*' \
+        isos/ {{ pikvm_host }}:{{ pikvm_msd }}/
+
+    # Prune remote — keep last {{ pikvm_max_isos }}
+    ssh {{ pikvm_host }} \
+        "ls -1 {{ pikvm_msd }}/mitie-server-*.iso 2>/dev/null | sort | head -n -{{ pikvm_max_isos }} | xargs -r rm -v"
+
+    ssh {{ pikvm_host }} kvmd-helper-otgmsd-remount ro
+
+    echo "Done. ISOs on PiKVM:"
+    ssh {{ pikvm_host }} "ls -lh {{ pikvm_msd }}/mitie-server-*.iso 2>/dev/null"
 
 # Runs shell check on all Bash scripts
 lint:
