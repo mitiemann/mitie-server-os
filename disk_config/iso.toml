@@ -1,6 +1,27 @@
+[customizations.kernel]
+# Required: Anaconda live env has no locale database; C.UTF-8 is a glibc
+# built-in that works without one. Without this, ostree OCI deployment fails
+# with "Pathname can't be converted from UTF-8 to current locale".
+append = "LANG=C.UTF-8"
+
 [customizations.installer.kickstart]
 contents = """
+# Partitioning
+zerombr
+clearpart --all --initlabel
+autopart --type=plain
+# Network
+network --bootproto=dhcp --hostname=mitie-server
+# Keyboard
+keyboard --vckeymap dvorak-programmer --xlayouts dvorak-programmer
+# User management
+user --name=mitiemann --groups=wheel --password=$y$j9T$ELmT.SUmGrdkczjqZO9W71$sqlEZ2u.NkyUymzzWEh5PaLpynvlDbP/ei2xD0w/.VD --lock
+sshkey --username=mitiemann "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA0+vK0N2XzIUB/L3VZJcZ/HjIYZ+c4FUgYXsdguJQJ5 mitiemann@mitie-laptop"
+rootpw $y$j9T$ELmT.SUmGrdkczjqZO9W71$sqlEZ2u.NkyUymzzWEh5PaLpynvlDbP/ei2xD0w/.VD
+reboot
 %post
-bootc switch --mutate-in-place --transport registry ghcr.io/mitiemann/mitie-server-os:latest
+# Set bootc origin so the system tracks the registry for future upgrades.
+# Non-fatal: may fail in air-gapped installer environments.
+bootc switch --mutate-in-place --transport registry ghcr.io/mitiemann/mitie-server-os:latest || true
 %end
 """

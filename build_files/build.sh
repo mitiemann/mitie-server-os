@@ -70,3 +70,12 @@ if log:
 else:
     print("No non-ASCII filenames found.")
 EOF
+
+# Clean up DNF state left in /var during the build.
+# On bootc images /var is a separate writable layer; baking in build-time
+# state triggers bootc lint warnings and needlessly grows the image.
+rm -rf /var/lib/dnf /var/lib/PackageKit
+
+# Restore correct SELinux contexts for files copied from system_files/.
+# Without this, COPY sets container_file_t which sshd cannot read.
+restorecon -rv /etc/ssh/

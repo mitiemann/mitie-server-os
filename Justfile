@@ -2,6 +2,13 @@ export image_name := env("IMAGE_NAME", "mitie-server-os") # output image name, u
 export default_tag := env("DEFAULT_TAG", "latest")
 export bib_image := env("BIB_IMAGE", "quay.io/centos-bootc/bootc-image-builder:latest")
 
+# PiKVM settings
+pikvm_host := "root@pikvm.denkb.ox"
+pikvm_msd := "/var/lib/kvmd/msd"
+# Retention: keep this many mitie-server-*.iso builds (local and remote).
+# TODO: switch to semver-aware policy — last 2 release builds + last 3 dev builds.
+pikvm_max_isos := "3"
+
 alias build-vm := build-qcow2
 alias rebuild-vm := rebuild-qcow2
 alias run-vm := run-vm-qcow2
@@ -178,12 +185,15 @@ _build-bib $target_image $tag $type $config: (_rootful_load_image target_image t
       -v $(pwd)/${config}:/config.toml:ro \
       -v $BUILDTMP:/output \
       -v /var/lib/containers/storage:/var/lib/containers/storage \
+      -v /var/cache/mitie-bib:/var/cache/osbuild \
       "${bib_image}" \
       ${args} \
       "${target_image}:${tag}"
 
+    sudo mkdir -p /var/cache/mitie-bib
+    sudo rm -rf output/
     mkdir -p output
-    sudo mv -f $BUILDTMP/* output/
+    sudo mv $BUILDTMP/* output/
     sudo rmdir $BUILDTMP
     sudo chown -R $USER:$USER output/
 
@@ -247,19 +257,28 @@ _run-vm $target_image $tag $type $config:
 
     # Set up the arguments for running the VM
     run_args=()
+    # Find an available SSH forward port (start at 2222)
+    ssh_port=2222
+    while grep -q :${ssh_port} <<< $(ss -tunalp); do
+        ssh_port=$(( ssh_port + 1 ))
+    done
+
     run_args+=(--rm --privileged)
     run_args+=(--pull=newer)
     run_args+=(--publish "127.0.0.1:${port}:8006")
+    run_args+=(--publish "127.0.0.1:${ssh_port}:${ssh_port}")
     run_args+=(--env "CPU_CORES=4")
     run_args+=(--env "RAM_SIZE=8G")
     run_args+=(--env "DISK_SIZE=64G")
     run_args+=(--env "TPM=Y")
     run_args+=(--env "GPU=Y")
+    run_args+=(--env "NET_OPTS=hostfwd=tcp::${ssh_port}-:22")
     run_args+=(--device=/dev/kvm)
     run_args+=(--volume "${PWD}/${image_file}":"/boot.${type}")
     run_args+=(docker.io/qemux/qemu)
 
     # Run the VM and open the browser to connect
+    echo "SSH available at: ssh -p ${ssh_port} mitiemann@localhost"
     (sleep 30 && xdg-open http://localhost:"$port") &
     podman run "${run_args[@]}"
 
@@ -294,7 +313,8 @@ spawn-vm rebuild="0" type="qcow2" ram="6G":
       -i ./output/**/*.{{ type }}
 
 
-# Upload ISO to PiKVM over SSH (requires passwordless SSH to root@pikvm.denkb.ox)
+# Upload ISO to PiKVM, maintaining a local mirror in isos/ and pruning old builds.
+# Requires passwordless SSH to {{ pikvm_host }}.
 [group('Utility')]
 push-iso:
     #!/usr/bin/bash
@@ -304,11 +324,28 @@ push-iso:
         echo "ISO not found at ${iso}. Run 'just build-iso' first."
         exit 1
     fi
+
+    mkdir -p isos
     filename="mitie-server-$(date +%Y%m%d-%H%M%S).iso"
-    ssh root@pikvm.denkb.ox kvmd-helper-otgmsd-remount rw
-    scp "${iso}" "root@pikvm.denkb.ox:/var/lib/kvmd/msd/images/${filename}"
-    ssh root@pikvm.denkb.ox kvmd-helper-otgmsd-remount ro
-    echo "ISO uploaded to PiKVM."
+
+    # Add new ISO to local mirror
+    cp "${iso}" "isos/${filename}"
+
+    # Prune local mirror — keep last {{ pikvm_max_isos }}
+    ls -1 isos/mitie-server-*.iso 2>/dev/null | sort | head -n -{{ pikvm_max_isos }} | xargs -r rm -v
+
+    # Sync to PiKVM
+    ssh {{ pikvm_host }} kvmd-helper-otgmsd-remount rw
+    scp -C "isos/${filename}" {{ pikvm_host }}:{{ pikvm_msd }}/
+
+    # Prune remote — keep last {{ pikvm_max_isos }}
+    ssh {{ pikvm_host }} \
+        "ls -1 {{ pikvm_msd }}/mitie-server-*.iso 2>/dev/null | sort | head -n -{{ pikvm_max_isos }} | xargs -r rm -v"
+
+    ssh {{ pikvm_host }} kvmd-helper-otgmsd-remount ro
+
+    echo "Done. ISOs on PiKVM:"
+    ssh {{ pikvm_host }} "ls -lh {{ pikvm_msd }}/mitie-server-*.iso 2>/dev/null"
 
 # Runs shell check on all Bash scripts
 lint:
