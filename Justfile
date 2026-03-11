@@ -327,9 +327,7 @@ push-iso:
 
     # Sync to PiKVM
     ssh {{ pikvm_host }} kvmd-helper-otgmsd-remount rw
-    rsync -az --partial --progress \
-        --include='mitie-server-*.iso' --exclude='*' \
-        isos/ {{ pikvm_host }}:{{ pikvm_msd }}/
+    scp -C "isos/${filename}" {{ pikvm_host }}:{{ pikvm_msd }}/
 
     # Prune remote — keep last {{ pikvm_max_isos }}
     ssh {{ pikvm_host }} \
