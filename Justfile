@@ -257,19 +257,28 @@ _run-vm $target_image $tag $type $config:
 
     # Set up the arguments for running the VM
     run_args=()
+    # Find an available SSH forward port (start at 2222)
+    ssh_port=2222
+    while grep -q :${ssh_port} <<< $(ss -tunalp); do
+        ssh_port=$(( ssh_port + 1 ))
+    done
+
     run_args+=(--rm --privileged)
     run_args+=(--pull=newer)
     run_args+=(--publish "127.0.0.1:${port}:8006")
+    run_args+=(--publish "127.0.0.1:${ssh_port}:${ssh_port}")
     run_args+=(--env "CPU_CORES=4")
     run_args+=(--env "RAM_SIZE=8G")
     run_args+=(--env "DISK_SIZE=64G")
     run_args+=(--env "TPM=Y")
     run_args+=(--env "GPU=Y")
+    run_args+=(--env "NET_OPTS=hostfwd=tcp::${ssh_port}-:22")
     run_args+=(--device=/dev/kvm)
     run_args+=(--volume "${PWD}/${image_file}":"/boot.${type}")
     run_args+=(docker.io/qemux/qemu)
 
     # Run the VM and open the browser to connect
+    echo "SSH available at: ssh -p ${ssh_port} mitiemann@localhost"
     (sleep 30 && xdg-open http://localhost:"$port") &
     podman run "${run_args[@]}"
 

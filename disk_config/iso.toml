@@ -1,32 +1,27 @@
+[customizations.kernel]
+# Required: Anaconda live env has no locale database; C.UTF-8 is a glibc
+# built-in that works without one. Without this, ostree OCI deployment fails
+# with "Pathname can't be converted from UTF-8 to current locale".
+append = "LANG=C.UTF-8"
+
 [customizations.installer.kickstart]
 contents = """
-text
-lang en_US.UTF-8
+# Partitioning
 zerombr
-clearpart --all --initlabel --disklabel=gpt
-autopart --noswap
+clearpart --all --initlabel
+autopart --type=plain
+# Network
+network --bootproto=dhcp --hostname=mitie-server
+# Keyboard
+keyboard --vckeymap dvorak-programmer --xlayouts dvorak-programmer
+# User management
+user --name=mitiemann --groups=wheel --password=$y$j9T$ELmT.SUmGrdkczjqZO9W71$sqlEZ2u.NkyUymzzWEh5PaLpynvlDbP/ei2xD0w/.VD --lock
+sshkey --username=mitiemann "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA0+vK0N2XzIUB/L3VZJcZ/HjIYZ+c4FUgYXsdguJQJ5 mitiemann@mitie-laptop"
+rootpw $y$j9T$ELmT.SUmGrdkczjqZO9W71$sqlEZ2u.NkyUymzzWEh5PaLpynvlDbP/ei2xD0w/.VD
 reboot
-
 %post
-# Create user with wheel access; password login disabled.
-# SSH keys are baked into the image at /etc/ssh/authorized_keys.d/mitiemann.
-useradd -G wheel -p '!' mitiemann
-
 # Set bootc origin so the system tracks the registry for future upgrades.
-bootc switch --mutate-in-place --transport registry ghcr.io/mitiemann/mitie-server-os:latest
+# Non-fatal: may fail in air-gapped installer environments.
+bootc switch --mutate-in-place --transport registry ghcr.io/mitiemann/mitie-server-os:latest || true
 %end
 """
-
-[customizations.installer.modules]
-enable = [
-  "org.fedoraproject.Anaconda.Modules.Storage",
-  "org.fedoraproject.Anaconda.Modules.Runtime",
-]
-disable = [
-  "org.fedoraproject.Anaconda.Modules.Network",
-  "org.fedoraproject.Anaconda.Modules.Security",
-  "org.fedoraproject.Anaconda.Modules.Services",
-  "org.fedoraproject.Anaconda.Modules.Users",
-  "org.fedoraproject.Anaconda.Modules.Subscription",
-  "org.fedoraproject.Anaconda.Modules.Timezone",
-]
