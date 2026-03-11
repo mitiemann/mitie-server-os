@@ -294,6 +294,22 @@ spawn-vm rebuild="0" type="qcow2" ram="6G":
       -i ./output/**/*.{{ type }}
 
 
+# Upload ISO to PiKVM over SSH (requires passwordless SSH to root@pikvm.denkb.ox)
+[group('Utility')]
+push-iso:
+    #!/usr/bin/bash
+    set -eoux pipefail
+    iso="output/bootiso/install.iso"
+    if [[ ! -f "${iso}" ]]; then
+        echo "ISO not found at ${iso}. Run 'just build-iso' first."
+        exit 1
+    fi
+    filename="mitie-server-$(date +%Y%m%d-%H%M%S).iso"
+    ssh root@pikvm.denkb.ox kvmd-helper-otgmsd-remount rw
+    scp "${iso}" "root@pikvm.denkb.ox:/var/lib/kvmd/msd/images/${filename}"
+    ssh root@pikvm.denkb.ox kvmd-helper-otgmsd-remount ro
+    echo "ISO uploaded to PiKVM."
+
 # Runs shell check on all Bash scripts
 lint:
     #!/usr/bin/env bash

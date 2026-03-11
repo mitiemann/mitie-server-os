@@ -44,3 +44,29 @@ systemctl enable cockpit.socket
 systemctl enable netbird.service
 systemctl enable podman.socket
 
+# ostree cannot deploy image layers that contain files with non-ASCII filenames
+# when the installer runs with a non-UTF-8 locale (e.g. Anaconda live env).
+# Remove any such files from the image at build time and log them.
+python3 - <<'EOF'
+import os
+log = []
+for top in ('/usr', '/etc'):
+    for root, dirs, files in os.walk(top, topdown=False):
+        for name in files:
+            try:
+                name.encode('ascii')
+            except UnicodeEncodeError:
+                path = os.path.join(root, name)
+                try:
+                    os.remove(path)
+                    log.append(path)
+                except OSError as e:
+                    log.append(f"{path} (removal failed: {e})")
+os.makedirs('/usr/share/mitie-server-os', exist_ok=True)
+with open('/usr/share/mitie-server-os/removed-non-ascii-files.log', 'w') as f:
+    f.write('\n'.join(log) + ('\n' if log else ''))
+if log:
+    print(f"Removed {len(log)} non-ASCII filename(s); see /usr/share/mitie-server-os/removed-non-ascii-files.log")
+else:
+    print("No non-ASCII filenames found.")
+EOF
