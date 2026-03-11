@@ -185,12 +185,15 @@ _build-bib $target_image $tag $type $config: (_rootful_load_image target_image t
       -v $(pwd)/${config}:/config.toml:ro \
       -v $BUILDTMP:/output \
       -v /var/lib/containers/storage:/var/lib/containers/storage \
+      -v /var/cache/mitie-bib:/var/cache/osbuild \
       "${bib_image}" \
       ${args} \
       "${target_image}:${tag}"
 
+    sudo mkdir -p /var/cache/mitie-bib
+    sudo rm -rf output/
     mkdir -p output
-    sudo mv -f $BUILDTMP/* output/
+    sudo mv $BUILDTMP/* output/
     sudo rmdir $BUILDTMP
     sudo chown -R $USER:$USER output/
 
