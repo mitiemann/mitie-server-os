@@ -17,7 +17,8 @@ network --bootproto=dhcp --hostname=mitie-server
 keyboard --vckeymap dvorak-programmer --xlayouts dvorak-programmer
 # User management
 user --name=mitiemann --groups=wheel --password=$y$j9T$ELmT.SUmGrdkczjqZO9W71$sqlEZ2u.NkyUymzzWEh5PaLpynvlDbP/ei2xD0w/.VD --lock
-sshkey --username=mitiemann "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIA0+vK0N2XzIUB/L3VZJcZ/HjIYZ+c4FUgYXsdguJQJ5 mitiemann@mitie-laptop"
+# SSH keys are provided by the image at /etc/ssh/authorized_keys.d/mitiemann
+# (with ssh_home_t SELinux context). No sshkey directive needed here.
 rootpw $y$j9T$ELmT.SUmGrdkczjqZO9W71$sqlEZ2u.NkyUymzzWEh5PaLpynvlDbP/ei2xD0w/.VD
 reboot
 %post
