@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -oux pipefail
+set -eoux pipefail
 
 # Not sure whether this is the right approach: but it works!
 # Netbird
@@ -14,9 +14,9 @@ set -oux pipefail
 # repo_gpgcheck=1
 # EOF
 
-dnf5 install -y netbird
-
-set -e
+# Post-install scripts attempt to start the netbird service, which fails in a
+# container build environment (no systemd). The install itself succeeds.
+dnf5 install -y netbird || echo "WARNING: netbird post-install failed (service start expected to fail in container)"
 
 ### Install packages
 
@@ -29,6 +29,7 @@ set -e
 dnf5 install -y \
     cockpit \
     just \
+    policycoreutils-python-utils \
     tmux
 
 # Use a COPR Example:
@@ -79,3 +80,10 @@ rm -rf /var/lib/dnf /var/lib/PackageKit
 # Restore correct SELinux contexts for files copied from system_files/.
 # Without this, COPY sets container_file_t which sshd cannot read.
 restorecon -rv /etc/ssh/
+
+# Set ssh_home_t on authorized_keys.d so sshd_t can read it as an
+# AuthorizedKeysFile path. restorecon alone assigns etc_t, which sshd
+# silently skips on SELinux enforcing systems (Fedora CoreOS default).
+# semanage persists the mapping so future restorecon calls don't revert it.
+semanage fcontext -a -t ssh_home_t '/etc/ssh/authorized_keys.d(/.*)?'
+restorecon -rv /etc/ssh/authorized_keys.d/
