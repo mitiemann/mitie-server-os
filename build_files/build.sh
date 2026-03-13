@@ -29,6 +29,7 @@ set -e
 dnf5 install -y \
     cockpit \
     just \
+    policycoreutils-python-utils \
     tmux
 
 # Use a COPR Example:
@@ -79,3 +80,10 @@ rm -rf /var/lib/dnf /var/lib/PackageKit
 # Restore correct SELinux contexts for files copied from system_files/.
 # Without this, COPY sets container_file_t which sshd cannot read.
 restorecon -rv /etc/ssh/
+
+# Set ssh_home_t on authorized_keys.d so sshd_t can read it as an
+# AuthorizedKeysFile path. restorecon alone assigns etc_t, which sshd
+# silently skips on SELinux enforcing systems (Fedora CoreOS default).
+# semanage persists the mapping so future restorecon calls don't revert it.
+semanage fcontext -a -t ssh_home_t '/etc/ssh/authorized_keys.d(/.*)?'
+restorecon -rv /etc/ssh/authorized_keys.d/

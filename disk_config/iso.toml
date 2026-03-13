@@ -6,6 +6,7 @@ append = "LANG=C.UTF-8"
 
 [customizations.installer.kickstart]
 contents = """
+text
 # Partitioning
 zerombr
 clearpart --all --initlabel
