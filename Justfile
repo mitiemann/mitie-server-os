@@ -357,6 +357,36 @@ provision host=server_host:
 
     echo "==> Done. Netbird tunnel may take a few seconds to establish."
 
+# Deploy a service stack to the server.
+# Copies the service directory, starts it with podman-compose, and runs it as root.
+# Usage: just deploy-service coredns
+[group('Utility')]
+deploy-service service host=server_host:
+    #!/usr/bin/bash
+    set -eoux pipefail
+    ssh_target="{{ server_user }}@{{ host }}"
+    service_dir="services/{{ service }}"
+
+    if [[ ! -d "${service_dir}" ]]; then
+        echo "Service directory '${service_dir}' not found."
+        exit 1
+    fi
+    if [[ ! -f "${service_dir}/.env" ]]; then
+        echo "Missing ${service_dir}/.env — copy from .env.template and fill in values."
+        exit 1
+    fi
+
+    echo "==> Syncing ${service_dir} to {{ host }}..."
+    ssh {{ ssh_j }} "${ssh_target}" sudo mkdir -p /var/lib/mitie-services/{{ service }}
+    rsync -av --rsync-path="sudo rsync" -e "ssh {{ ssh_j }}" \
+        "${service_dir}/" "${ssh_target}:/var/lib/mitie-services/{{ service }}/"
+
+    echo "==> Starting {{ service }}..."
+    ssh {{ ssh_j }} "${ssh_target}" \
+        sudo podman-compose -f /var/lib/mitie-services/{{ service }}/compose.yaml up -d
+
+    echo "==> {{ service }} deployed."
+
 # Upload ISO to PiKVM, maintaining a local mirror in isos/ and pruning old builds.
 
 # Requires passwordless SSH to {{ pikvm_host }}.

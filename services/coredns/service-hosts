@@ -1,0 +1,10 @@
+# Service subdomains on mitie-server.
+# All point to the server's Netbird IP (SERVER_NETBIRD_IP in .env).
+#
+# Peer FQDNs (mitie-server.denkb.ox, pikvm.denkb.ox, etc.) are NOT listed
+# here — they fall through to the Netbird upstream DNS in the Corefile.
+#
+# Add a new line here when deploying a new service.
+
+100.83.166.105 auth.denkb.ox
+100.83.166.105 cockpit.denkb.ox

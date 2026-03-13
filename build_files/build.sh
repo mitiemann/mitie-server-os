@@ -30,6 +30,7 @@ dnf5 install -y \
     cockpit \
     firewalld \
     just \
+    podman-compose \
     policycoreutils-python-utils \
     tmux
 

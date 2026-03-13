@@ -1,0 +1,24 @@
+# denkb.ox zone: serve known service subdomains from the hosts file,
+# fall through to the Netbird upstream DNS for peer FQDNs
+# (mitie-server.denkb.ox, pikvm.denkb.ox, etc.).
+#
+# NETBIRD_UPSTREAM_DNS (100.83.64.147): the Netbird-managed DNS server
+# assigned to the server's wt0 interface. Check/update with:
+#   resolvectl status wt0   (on the server)
+denkb.ox {
+    hosts /etc/coredns/service-hosts {
+        ttl 60
+        fallthrough
+    }
+    forward . 100.83.64.147
+    cache 30
+    log
+    errors
+}
+
+# All other queries: forward to public resolvers.
+. {
+    forward . 8.8.8.8 1.1.1.1
+    cache 300
+    errors
+}

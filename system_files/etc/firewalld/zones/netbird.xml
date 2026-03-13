@@ -4,5 +4,8 @@
   <description>Netbird VPN tunnel zone. Allows Cockpit and SSH over the Netbird interface.</description>
   <interface name="wt0"/>
   <service name="cockpit"/>
+  <service name="dns"/>
+  <service name="http"/>
+  <service name="https"/>
   <service name="ssh"/>
 </zone>
