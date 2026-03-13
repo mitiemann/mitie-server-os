@@ -46,10 +46,38 @@ Planned subdomain assignments:
 | Cockpit | `cockpit.denkb.ox` (via Authentik proxy outpost) |
 | OpenCode / kilo.ai | TBD |
 
-DNS for `denkb.ox` must resolve these subdomains to the Netbird IP of the
-server (`100.83.166.105`). This can be done via:
-- A wildcard `*.denkb.ox → 100.83.166.105` record in the `denkb.ox` DNS zone, or
-- Netbird's built-in DNS nameserver (if configured for the `denkb.ox` domain).
+## DNS implementation
+
+`denkb.ox` is a **virtual Netbird domain** — not a real registered domain.
+Netbird's managed DNS server automatically resolves peer FQDNs
+(`mitie-server.denkb.ox`, `pikvm.denkb.ox`, etc.) but cannot be configured to
+serve custom service subdomains.
+
+**Netbird Reverse Proxy (Beta) was investigated and rejected:**
+- The "Services" feature routes traffic through Netbird's cloud infrastructure
+  (not self-hosted). Unacceptable.
+- The "Custom Domains" feature requires adding a CNAME to an external DNS
+  registrar to prove domain ownership. `denkb.ox` has no external DNS zone.
+
+**Chosen approach: CoreDNS container on the server + Netbird Nameserver Group.**
+
+1. Run a CoreDNS container on the server listening on the Netbird interface
+   (`100.83.166.105:53`).
+2. CoreDNS config: return `100.83.166.105` for all `*.denkb.ox` service
+   subdomains; forward all other `denkb.ox` queries (peer FQDNs) upstream to
+   the original Netbird DNS server.
+3. In the Netbird admin console, add a Nameserver Group pointing to
+   `100.83.166.105` for the `denkb.ox` domain, scoped to only the user's
+   devices (not all network peers).
+
+This means:
+- Service subdomains resolve for the user's devices only.
+- Peer FQDN resolution (`mitie-server.denkb.ox`, etc.) continues to work
+  normally via CoreDNS's upstream forwarding.
+- If the server is down, service subdomains do not resolve — acceptable, since
+  the services themselves are also unavailable.
+- Other machines in the Netbird network are unaffected (nameserver group is
+  scoped to the user's peer group).
 
 ## Consequences
 
