@@ -1,5 +1,6 @@
 enable cockpit.socket
 enable firewalld.service
+enable mitie-authentik.service
 enable mitie-caddy.service
 enable netbird.service
 enable podman.socket

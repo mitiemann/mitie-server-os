@@ -4,7 +4,10 @@
   <description>Netbird VPN tunnel zone. Allows Cockpit, SSH, HTTP, and HTTPS over the Netbird interface.</description>
   <interface name="wt0"/>
   <service name="cockpit"/>
-  <service name="http"/>
-  <service name="https"/>
   <service name="ssh"/>
+  <!-- Caddy reverse proxy service ports (all HTTPS via internal CA) -->
+  <port protocol="tcp" port="8443"/>
+  <port protocol="tcp" port="8444"/>
+  <port protocol="tcp" port="8445"/>
+  <port protocol="tcp" port="9443"/>
 </zone>

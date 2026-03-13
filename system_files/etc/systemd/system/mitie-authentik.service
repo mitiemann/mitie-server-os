@@ -1,0 +1,15 @@
+[Unit]
+Description=Authentik SSO — mitie-server homelab services
+After=network-online.target netbird.service podman.socket mitie-caddy.service
+Wants=network-online.target
+# Only start if the compose file has been deployed (via just deploy-service authentik).
+ConditionPathExists=/var/lib/mitie-services/authentik/compose.yaml
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=podman-compose -f /var/lib/mitie-services/authentik/compose.yaml up -d --pull always
+ExecStop=podman-compose -f /var/lib/mitie-services/authentik/compose.yaml down
+
+[Install]
+WantedBy=multi-user.target
