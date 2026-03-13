@@ -1,90 +1,87 @@
-# ADR-0004: Domain strategy — *.denkb.ox, Netbird-VPN-only
+# ADR-0004: Domain strategy — port-based access on mitie-server.denkb.ox
 
 **Date:** 2026-03-13
-**Status:** Accepted
+**Status:** Accepted (supersedes initial CoreDNS/subdomain approach)
 
 ## Context
 
-Services need to be reachable via human-friendly hostnames with valid TLS.
+Services need to be reachable via human-friendly URLs with valid TLS.
 The primary access model is the developer and trusted users connecting over
 the Netbird VPN mesh.
 
 Options considered:
 
-**Subpath routing on a single domain** (e.g. `server.denkb.ox/gitlab`,
-`server.denkb.ox/nextcloud`) — simpler DNS setup, but many applications
-(especially GitLab and Nextcloud) have partial or broken support for subpath
-installs and require extra configuration. OIDC redirect URIs become harder to
+**Subpath routing on a single domain** (e.g. `mitie-server.denkb.ox/gitlab`,
+`mitie-server.denkb.ox/nextcloud`) — many applications (GitLab, Nextcloud)
+have partial or broken subpath support; OIDC redirect URIs become harder to
 manage.
 
-**Subdomain per service on `*.denkb.ox`** — each service gets its own
-subdomain (`gitlab.denkb.ox`, `nextcloud.denkb.ox`, `auth.denkb.ox`, …).
-This is the standard deployment model for all target services; upstream
-Compose examples and OIDC callback URIs assume subdomain-based routing.
+**Subdomain per service on `*.denkb.ox`** — the standard deployment model
+for all target services. Requires custom DNS resolution for the service
+subdomains, since Netbird's built-in DNS only resolves peer FQDNs. Initially
+pursued via CoreDNS container + Netbird Nameserver Group (see "Rejected
+approaches" below).
 
-**Public domain with auth** — expose services to the internet behind
-Authentik's forward auth. Increases attack surface; not needed given Netbird
-VPN provides access from all relevant client devices.
+**Port-based access on `mitie-server.denkb.ox`** — each service gets a
+distinct port. `mitie-server.denkb.ox` already resolves to the server's
+Netbird IP (`100.83.166.105`) via Netbird's built-in DNS with no additional
+configuration. OIDC redirect URIs use `https://mitie-server.denkb.ox:<port>`.
+TLS is terminated by Caddy using the internal CA (ADR-0003).
 
-**Separate public domain for some services** (e.g. Jitsi for external guests)
-— deferred; can be added later if needed.
+**Public domain with auth** — increases attack surface; not needed given
+Netbird VPN provides access from all relevant client devices.
 
 ## Decision
 
-All services are deployed on **subdomains of `denkb.ox`**, accessible
-exclusively over the **Netbird VPN** (interface `wt0`, firewalld netbird zone).
+All services are deployed at **distinct ports on `mitie-server.denkb.ox`**,
+accessible exclusively over the **Netbird VPN** (interface `wt0`, firewalld
+netbird zone). No additional DNS infrastructure is needed.
 
-Planned subdomain assignments:
+Port assignments:
 
-| Service | Subdomain |
+| Service | URL |
 |---|---|
-| Caddy (proxy) | — (termination only) |
-| Authentik | `auth.denkb.ox` |
-| GitLab | `gitlab.denkb.ox` |
-| Nextcloud | `nextcloud.denkb.ox` |
-| Jitsi | `meet.denkb.ox` |
-| Cockpit | `cockpit.denkb.ox` (via Authentik proxy outpost) |
-| OpenCode / kilo.ai | TBD |
+| Cockpit | `https://mitie-server.denkb.ox:9090` (native, no proxy) |
+| Authentik | `https://mitie-server.denkb.ox:9443` |
+| GitLab | `https://mitie-server.denkb.ox:8443` |
+| Nextcloud | `https://mitie-server.denkb.ox:8444` |
+| Jitsi | `https://mitie-server.denkb.ox:8445` |
 
-## DNS implementation
+Caddy listens on the Netbird interface for ports 9443, 8443, 8444, 8445 and
+terminates TLS with the internal CA. Cockpit continues to handle its own TLS
+on port 9090 for now; it can be moved behind Caddy later when the Authentik
+proxy outpost is set up.
 
-`denkb.ox` is a **virtual Netbird domain** — not a real registered domain.
-Netbird's managed DNS server automatically resolves peer FQDNs
-(`mitie-server.denkb.ox`, `pikvm.denkb.ox`, etc.) but cannot be configured to
-serve custom service subdomains.
+## Rejected approaches
 
-**Netbird Reverse Proxy (Beta) was investigated and rejected:**
-- The "Services" feature routes traffic through Netbird's cloud infrastructure
-  (not self-hosted). Unacceptable.
-- The "Custom Domains" feature requires adding a CNAME to an external DNS
-  registrar to prove domain ownership. `denkb.ox` has no external DNS zone.
+**CoreDNS container + Netbird Nameserver Group** — this was initially
+implemented but removed. It required:
+- A CoreDNS container running on the server, baked into the image.
+- A Nameserver Group configured in the Netbird admin console pointing
+  `denkb.ox` queries to the server's Netbird IP.
+- Risk: if the server is down, DNS also stops working for the user's devices,
+  potentially disrupting other `denkb.ox` peer resolution.
+- The Nameserver Group scoping question (not all peers should have their DNS
+  affected) added operational complexity.
+- Eliminated by the port-based approach, which requires zero DNS configuration
+  beyond what Netbird already provides.
 
-**Chosen approach: CoreDNS container on the server + Netbird Nameserver Group.**
-
-1. Run a CoreDNS container on the server listening on the Netbird interface
-   (`100.83.166.105:53`).
-2. CoreDNS config: return `100.83.166.105` for all `*.denkb.ox` service
-   subdomains; forward all other `denkb.ox` queries (peer FQDNs) upstream to
-   the original Netbird DNS server.
-3. In the Netbird admin console, add a Nameserver Group pointing to
-   `100.83.166.105` for the `denkb.ox` domain, scoped to only the user's
-   devices (not all network peers).
-
-This means:
-- Service subdomains resolve for the user's devices only.
-- Peer FQDN resolution (`mitie-server.denkb.ox`, etc.) continues to work
-  normally via CoreDNS's upstream forwarding.
-- If the server is down, service subdomains do not resolve — acceptable, since
-  the services themselves are also unavailable.
-- Other machines in the Netbird network are unaffected (nameserver group is
-  scoped to the user's peer group).
+**Netbird Reverse Proxy (Beta)** — investigated and rejected:
+- The "Services" feature routes traffic through Netbird's cloud (not
+  self-hosted). Unacceptable.
+- The "Custom Domains" feature requires a CNAME in an external DNS registrar.
+  `denkb.ox` has no external DNS zone.
 
 ## Consequences
 
-- Clients on the Netbird VPN can reach all services via friendly hostnames.
+- No CoreDNS container, no Nameserver Group, no extra firewall rules for DNS.
+- `mitie-server.denkb.ox` resolves automatically for all Netbird peers.
+- OIDC redirect URIs include the port (e.g.
+  `https://mitie-server.denkb.ox:9443/source/oauth/callback`), which is
+  standard and supported by all target services.
+- If a service ever needs a cleaner URL (no port), adding a subdomain at that
+  time requires only a Nameserver Group change in Netbird — no image rebuild.
 - Off-VPN access requires connecting to Netbird first (acceptable for a
   personal homelab).
-- If any service needs to be publicly accessible (e.g. Jitsi for guests), a
-  separate public subdomain and firewall rule must be added at that time.
 - The Caddy root CA certificate (ADR-0003) must be trusted on all client
-  devices for the `*.denkb.ox` TLS certs to validate without warnings.
+  devices for TLS certs to validate without warnings.
