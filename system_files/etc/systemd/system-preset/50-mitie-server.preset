@@ -1,4 +1,5 @@
 enable cockpit.socket
 enable firewalld.service
+enable mitie-coredns.service
 enable netbird.service
 enable podman.socket

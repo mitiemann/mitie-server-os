@@ -1,0 +1,15 @@
+[Unit]
+Description=CoreDNS — denkb.ox DNS for mitie-server services
+After=network-online.target netbird.service
+Wants=network-online.target
+# Restart if netbird reconnects and changes the wt0 interface
+PartOf=netbird.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=podman-compose -f /etc/mitie-services/coredns/compose.yaml up -d --pull always
+ExecStop=podman-compose -f /etc/mitie-services/coredns/compose.yaml down
+
+[Install]
+WantedBy=multi-user.target
