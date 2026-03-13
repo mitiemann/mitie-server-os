@@ -1,0 +1,31 @@
+{
+	# Bind to the Netbird interface only.
+	# firewalld (netbird zone) is the primary enforcement layer; this is
+	# defense-in-depth so Caddy never accidentally listens on the public IP.
+	default_bind 100.83.166.105
+
+	# Issue TLS certificates from Caddy's internal CA.
+	# Export the CA cert from /data/caddy/pki/authorities/local/root.crt
+	# and trust it on all client devices.
+	local_certs
+}
+
+# Authentik SSO — https://mitie-server.denkb.ox:9443
+https://mitie-server.denkb.ox:9443 {
+	reverse_proxy localhost:9000
+}
+
+# GitLab — https://mitie-server.denkb.ox:8443
+https://mitie-server.denkb.ox:8443 {
+	reverse_proxy localhost:8880
+}
+
+# Nextcloud — https://mitie-server.denkb.ox:8444
+https://mitie-server.denkb.ox:8444 {
+	reverse_proxy localhost:8881
+}
+
+# Jitsi Meet — https://mitie-server.denkb.ox:8445
+https://mitie-server.denkb.ox:8445 {
+	reverse_proxy localhost:8882
+}

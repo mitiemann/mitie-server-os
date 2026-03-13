@@ -1,0 +1,17 @@
+services:
+  caddy:
+    image: docker.io/caddy:latest
+    container_name: caddy
+    restart: unless-stopped
+    # Host networking lets Caddy reach backend services on localhost without
+    # exposing internal ports externally. firewalld (netbird zone) enforces
+    # that the bound ports are only reachable over the Netbird VPN.
+    network_mode: host
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:

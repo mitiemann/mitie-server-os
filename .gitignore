@@ -1,5 +1,7 @@
 cosign.key
 .env
+# Services with no secrets can commit their .env explicitly:
+!services/caddy/.env
 _build_*
 output
 _build-*/**
