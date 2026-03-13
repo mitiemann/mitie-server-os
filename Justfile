@@ -330,7 +330,7 @@ provision host=server_host:
     ssh_target="{{ server_user }}@{{ host }}"
 
     echo "==> Connecting Netbird on {{ host }}..."
-    ssh "${ssh_target}" sudo netbird up --setup-key "${NETBIRD_SETUP_KEY}"
+    ssh -t "${ssh_target}" sudo netbird up --setup-key "${NETBIRD_SETUP_KEY}"
 
     if [[ -n "${SSH_HOST_KEY_PATH:-}" && -f "${SSH_HOST_KEY_PATH}" ]]; then
         echo "==> Installing stable SSH host key..."
@@ -339,7 +339,7 @@ provision host=server_host:
         if [[ -f "${SSH_HOST_KEY_PATH}.pub" ]]; then
             ssh "${ssh_target}" sudo tee /etc/ssh/ssh_host_ed25519_key.pub < "${SSH_HOST_KEY_PATH}.pub" > /dev/null
         fi
-        ssh "${ssh_target}" sudo systemctl restart sshd
+        ssh -t "${ssh_target}" sudo systemctl restart sshd
         echo "==> Updating known_hosts for {{ host }}..."
         ssh-keygen -R "{{ host }}" 2>/dev/null || true
         ssh-keyscan -t ed25519 "{{ host }}" >> ~/.ssh/known_hosts
