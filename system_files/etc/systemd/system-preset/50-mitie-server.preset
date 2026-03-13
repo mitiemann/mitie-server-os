@@ -1,3 +1,4 @@
 enable cockpit.socket
+enable firewalld.service
 enable netbird.service
 enable podman.socket
