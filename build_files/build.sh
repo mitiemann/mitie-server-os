@@ -28,6 +28,7 @@ dnf5 install -y netbird || echo "WARNING: netbird post-install failed (service s
 # this installs a package from fedora repos
 dnf5 install -y \
     cockpit \
+    firewalld \
     just \
     policycoreutils-python-utils \
     tmux

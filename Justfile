@@ -1,13 +1,29 @@
-export image_name := env("IMAGE_NAME", "mitie-server-os") # output image name, usually same as repo name, change as needed
+set dotenv-load := true
+
+export image_name := env("IMAGE_NAME", "mitie-server-os")
 export default_tag := env("DEFAULT_TAG", "latest")
 export bib_image := env("BIB_IMAGE", "quay.io/centos-bootc/bootc-image-builder:latest")
 
+# Server settings (override via .env)
+
+server_host := env("SERVER_HOST", "134.2.174.238")
+server_user := "mitiemann"
+
 # PiKVM settings
+
 pikvm_host := "root@pikvm.denkb.ox"
 pikvm_msd := "/var/lib/kvmd/msd"
+
 # Retention: keep this many mitie-server-*.iso builds (local and remote).
 # TODO: switch to semver-aware policy — last 2 release builds + last 3 dev builds.
+
 pikvm_max_isos := "3"
+
+# Set VIA_PIKVM=1 to proxy all server SSH commands through PiKVM (e.g. when off-LAN).
+# Example: VIA_PIKVM=1 just provision
+
+via_pikvm := env("VIA_PIKVM", "0")
+ssh_j := if via_pikvm == "1" { "-J " + pikvm_host } else { "" }
 
 alias build-vm := build-qcow2
 alias rebuild-vm := rebuild-qcow2
@@ -312,8 +328,37 @@ spawn-vm rebuild="0" type="qcow2" ram="6G":
       --vsock=false --pass-ssh-key=false \
       -i ./output/**/*.{{ type }}
 
+# Provision server: connect Netbird (NETBIRD_SETUP_KEY) and optionally install stable SSH host key (SSH_HOST_KEY_PATH).
+[group('Utility')]
+provision host=server_host:
+    #!/usr/bin/bash
+    set -eoux pipefail
+    ssh_target="{{ server_user }}@{{ host }}"
+
+    echo "==> Starting Netbird daemon on {{ host }}..."
+    ssh {{ ssh_j }} "${ssh_target}" sudo systemctl start netbird.service
+
+    echo "==> Connecting Netbird on {{ host }}..."
+    ssh {{ ssh_j }} -t "${ssh_target}" sudo netbird up --management-url https://chirp.denkbox.eu/ --setup-key "${NETBIRD_SETUP_KEY}"
+
+    if [[ -n "${SSH_HOST_KEY_PATH:-}" && -f "${SSH_HOST_KEY_PATH}" ]]; then
+        echo "==> Installing stable SSH host key..."
+        ssh {{ ssh_j }} "${ssh_target}" sudo tee /etc/ssh/ssh_host_ed25519_key < "${SSH_HOST_KEY_PATH}" > /dev/null
+        ssh {{ ssh_j }} "${ssh_target}" sudo chmod 600 /etc/ssh/ssh_host_ed25519_key
+        if [[ -f "${SSH_HOST_KEY_PATH}.pub" ]]; then
+            ssh {{ ssh_j }} "${ssh_target}" sudo tee /etc/ssh/ssh_host_ed25519_key.pub < "${SSH_HOST_KEY_PATH}.pub" > /dev/null
+        fi
+        ssh {{ ssh_j }} -t "${ssh_target}" sudo systemctl restart sshd
+        echo "==> Updating known_hosts for {{ host }}..."
+        ssh-keygen -R "{{ host }}" 2>/dev/null || true
+        ssh-keyscan -t ed25519 "{{ host }}" >> ~/.ssh/known_hosts
+        echo "==> Host key updated."
+    fi
+
+    echo "==> Done. Netbird tunnel may take a few seconds to establish."
 
 # Upload ISO to PiKVM, maintaining a local mirror in isos/ and pruning old builds.
+
 # Requires passwordless SSH to {{ pikvm_host }}.
 [group('Utility')]
 push-iso:

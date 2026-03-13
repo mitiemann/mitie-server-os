@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<zone>
+  <short>FedoraCoreOS</short>
+  <description>Used for Fedora CoreOS cloud instances. Cockpit removed — accessible via Netbird only.</description>
+  <service name="dhcpv6-client"/>
+  <service name="ssh"/>
+</zone>
