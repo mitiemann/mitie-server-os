@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -oux pipefail
+set -eoux pipefail
 
 # Not sure whether this is the right approach: but it works!
 # Netbird
@@ -14,9 +14,9 @@ set -oux pipefail
 # repo_gpgcheck=1
 # EOF
 
-dnf5 install -y netbird
-
-set -e
+# Post-install scripts attempt to start the netbird service, which fails in a
+# container build environment (no systemd). The install itself succeeds.
+dnf5 install -y netbird || echo "WARNING: netbird post-install failed (service start expected to fail in container)"
 
 ### Install packages
 
