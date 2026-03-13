@@ -19,6 +19,12 @@ pikvm_msd := "/var/lib/kvmd/msd"
 
 pikvm_max_isos := "3"
 
+# Set VIA_PIKVM=1 to proxy all server SSH commands through PiKVM (e.g. when off-LAN).
+# Example: VIA_PIKVM=1 just provision
+
+via_pikvm := env("VIA_PIKVM", "0")
+ssh_j := if via_pikvm == "1" { "-J " + pikvm_host } else { "" }
+
 alias build-vm := build-qcow2
 alias rebuild-vm := rebuild-qcow2
 alias run-vm := run-vm-qcow2
@@ -329,17 +335,20 @@ provision host=server_host:
     set -eoux pipefail
     ssh_target="{{ server_user }}@{{ host }}"
 
+    echo "==> Starting Netbird daemon on {{ host }}..."
+    ssh {{ ssh_j }} "${ssh_target}" sudo systemctl start netbird.service
+
     echo "==> Connecting Netbird on {{ host }}..."
-    ssh -t "${ssh_target}" sudo netbird up --setup-key "${NETBIRD_SETUP_KEY}"
+    ssh {{ ssh_j }} -t "${ssh_target}" sudo netbird up --management-url https://chirp.denkbox.eu/ --setup-key "${NETBIRD_SETUP_KEY}"
 
     if [[ -n "${SSH_HOST_KEY_PATH:-}" && -f "${SSH_HOST_KEY_PATH}" ]]; then
         echo "==> Installing stable SSH host key..."
-        ssh "${ssh_target}" sudo tee /etc/ssh/ssh_host_ed25519_key < "${SSH_HOST_KEY_PATH}" > /dev/null
-        ssh "${ssh_target}" sudo chmod 600 /etc/ssh/ssh_host_ed25519_key
+        ssh {{ ssh_j }} "${ssh_target}" sudo tee /etc/ssh/ssh_host_ed25519_key < "${SSH_HOST_KEY_PATH}" > /dev/null
+        ssh {{ ssh_j }} "${ssh_target}" sudo chmod 600 /etc/ssh/ssh_host_ed25519_key
         if [[ -f "${SSH_HOST_KEY_PATH}.pub" ]]; then
-            ssh "${ssh_target}" sudo tee /etc/ssh/ssh_host_ed25519_key.pub < "${SSH_HOST_KEY_PATH}.pub" > /dev/null
+            ssh {{ ssh_j }} "${ssh_target}" sudo tee /etc/ssh/ssh_host_ed25519_key.pub < "${SSH_HOST_KEY_PATH}.pub" > /dev/null
         fi
-        ssh -t "${ssh_target}" sudo systemctl restart sshd
+        ssh {{ ssh_j }} -t "${ssh_target}" sudo systemctl restart sshd
         echo "==> Updating known_hosts for {{ host }}..."
         ssh-keygen -R "{{ host }}" 2>/dev/null || true
         ssh-keyscan -t ed25519 "{{ host }}" >> ~/.ssh/known_hosts
