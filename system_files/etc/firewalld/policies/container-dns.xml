@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<policy>
+  <short>Container DNS</short>
+  <description>Allow containers to reach aardvark-dns on the bridge gateway. Without this, podman-compose networks cannot resolve service hostnames regardless of the dns_enabled flag on the network.</description>
+  <ingress-zone name="ANY"/>
+  <egress-zone name="HOST"/>
+  <service name="dns"/>
+</policy>

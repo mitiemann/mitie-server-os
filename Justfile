@@ -371,8 +371,8 @@ deploy-service service host=server_host:
         echo "Service directory '${service_dir}' not found."
         exit 1
     fi
-    if [[ ! -f "${service_dir}/.env" ]]; then
-        echo "Missing ${service_dir}/.env — copy from .env.template and fill in values."
+    if [[ ! -f ".env" ]]; then
+        echo "Missing .env at repo root — copy from .env.template and fill in values."
         exit 1
     fi
 
@@ -380,6 +380,10 @@ deploy-service service host=server_host:
     ssh {{ ssh_j }} "${ssh_target}" sudo mkdir -p /var/lib/mitie-services/{{ service }}
     rsync -av --rsync-path="sudo rsync" -e "ssh {{ ssh_j }}" \
         "${service_dir}/" "${ssh_target}:/var/lib/mitie-services/{{ service }}/"
+
+    echo "==> Syncing .env to {{ host }}..."
+    rsync -av --rsync-path="sudo rsync" -e "ssh {{ ssh_j }}" \
+        ".env" "${ssh_target}:/var/lib/mitie-services/{{ service }}/.env"
 
     echo "==> Starting {{ service }}..."
     ssh {{ ssh_j }} "${ssh_target}" \

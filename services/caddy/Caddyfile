@@ -1,8 +1,7 @@
 {
-	# Bind to the Netbird interface only.
-	# firewalld (netbird zone) is the primary enforcement layer; this is
-	# defense-in-depth so Caddy never accidentally listens on the public IP.
-	default_bind 100.83.166.105
+	# firewalld (netbird zone) is the enforcement layer — the Caddy service
+	# ports are only open on wt0. Caddy listens on all interfaces so it is
+	# not tied to a specific Netbird IP, which can change across reinstalls.
 
 	# Issue TLS certificates from Caddy's internal CA.
 	# Export the CA cert from /data/caddy/pki/authorities/local/root.crt
