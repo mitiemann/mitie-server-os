@@ -1,0 +1,16 @@
+version: 1
+metadata:
+  name: embedded-outpost
+  labels:
+    blueprints.goauthentik.io/description: >-
+      Manages the embedded outpost's provider list. Update this file whenever
+      a new proxy provider is added — list every provider that should be served.
+
+entries:
+  - model: authentik_outposts.outpost
+    state: present
+    identifiers:
+      name: "authentik Embedded Outpost"
+    attrs:
+      providers:
+        - !Find [authentik_providers_proxy.proxyprovider, [name, cockpit]]

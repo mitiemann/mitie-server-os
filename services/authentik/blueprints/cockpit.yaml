@@ -1,0 +1,30 @@
+version: 1
+metadata:
+  name: cockpit-sso
+  labels:
+    blueprints.goauthentik.io/description: >-
+      Cockpit reverse proxy provider and application for Caddy forward auth.
+      Caddy handles TLS termination on :9090; Cockpit listens on 127.0.0.1:19090.
+
+entries:
+  - model: authentik_providers_proxy.proxyprovider
+    state: present
+    identifiers:
+      name: cockpit
+    id: cockpit-provider
+    attrs:
+      name: cockpit
+      authorization_flow: !Find [authentik_flows.flow, [slug, default-provider-authorization-implicit-consent]]
+      invalidation_flow: !Find [authentik_flows.flow, [slug, default-provider-invalidation-flow]]
+      mode: forward_single
+      external_host: "https://mitie-server.denkb.ox:9090"
+
+  - model: authentik_core.application
+    state: present
+    identifiers:
+      slug: cockpit
+    attrs:
+      name: Cockpit
+      slug: cockpit
+      provider: !KeyOf cockpit-provider
+      meta_launch_url: "https://mitie-server.denkb.ox:9090"
